@@ -1,0 +1,133 @@
+---
+title: "Practical Machine Learning Project"
+author: "George Papasavvas"
+date: "26 September 2015"
+output: html_document
+---
+
+```{r}
+
+#Set Library Path
+.libPaths("C:/George/R Packages")
+
+#Install Packages
+#install.packages("randomForest")
+
+#Set Working Directory
+wd <- "C:/George/personal/classes/Practical Machine Learning/Project"
+setwd(wd)
+
+#Load Caret Library
+library(caret)
+
+##############################################################
+#------------SetUp--------------------------------------------
+##############################################################
+
+#Testing and Traing CSV files
+TestingFile <- "pml-training.csv"
+TrainingFile <- "pml-testing.csv"
+
+#Read Training and Testing Data
+TrainingData <- read.csv(TestingFile)
+TestingData <- read.csv(TrainingFile)
+
+#Set The seed
+set.seed(155)
+
+#Split Training data to 60% to 40% (60% training and 40% for testing)
+inTrain <- createDataPartition(y=TrainingData$classe, p=0.6, list=F)
+TrainingDataV1 <- TrainingData[inTrain, ]
+TestingDataV1 <- TrainingData[-inTrain, ]
+
+##############################################################
+#------------Remove Unnecessary features----------------------
+##############################################################
+
+# Remove Data with Near Zero Variance
+NearZeroVarData <- nearZeroVar(TrainingDataV1)
+TrainingDataV2 <- TrainingDataV1[, -NearZeroVarData]
+TestingDataV2 <- TestingDataV1[, -NearZeroVarData]
+
+# Remov NA Data
+NAData <- sapply(TrainingDataV2, function(x) mean(is.na(x))) > 0.95
+TrainingDataV2 <- TrainingDataV2[, NAData==F]
+TestingDataV2 <- TestingDataV2[, NAData==F]
+
+# Remove the following irrenlevant Columns ==> X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp
+TrainingDataV2 <- TrainingDataV2[, -(1:5)]
+TestingDataV2 <- TestingDataV2[, -(1:5)]
+
+##############################################################
+#-----------------Build Model---------------------------------
+##############################################################
+
+#3 fold CV 
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)
+
+# fit model on cleaned TrainingDataV2 using Rendom Forest technique
+fit <- train(classe ~ ., data=TrainingDataV2, method="rf", trControl=fitControl)
+fit$finalModel
+
+
+# Predict on cleaned Training Data
+preds <- predict(fit, newdata=TrainingDataV2)
+
+# out-of-sample error using confusion matrix
+confusionMatrix(TrainingDataV2$classe, preds)
+
+#The result are very good so we proceed apply on full data
+#Accuracy 99.8%
+#Out of Sample Error 0.2%
+
+##############################################################
+#------------Apply On full Traing Data------------------------
+##############################################################
+
+
+##############################################################
+#------------Remove Unnecessary features----------------------
+##############################################################
+
+# Remove Data with Near Zero Variance
+NearZeroVarData <- nearZeroVar(TrainingData)
+TrainingData <- TrainingData[, -NearZeroVarData]
+TestingData <- TestingData[, -NearZeroVarData]
+
+# Remov NA Data
+NAData <- sapply(TrainingData, function(x) mean(is.na(x))) > 0.95
+TrainingData <- TrainingData[, NAData==F]
+TestingData <- TestingData[, NAData==F]
+
+# Remove the following irrenlevant Columns ==> X, user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp
+TrainingData <- TrainingData[, -(1:5)]
+TestingData <- TestingData[, -(1:5)]
+
+##############################################################
+#-----------------Build Model---------------------------------
+##############################################################
+
+# Full Training Set
+fitControl <- trainControl(method="cv", number=3, verboseIter=F)
+fit <- train(classe ~ ., data=TrainingData, method="rf", trControl=fitControl)
+
+# Now Apply Prediciton on Test Set
+preds <- predict(fit, newdata=TestingData)
+
+# Character Vector
+preds <- as.character(preds)
+
+# Write predictions to files
+pml_write_files <- function(x) {
+  n <- length(x)
+  for(i in 1:n) {
+    filename <- paste0("problem_id_", i, ".txt")
+    write.table(x[i], file=filename, quote=F, row.names=F, col.names=F)
+  }
+}
+
+# create prediction files to submit
+pml_write_files(preds)
+
+```
+
